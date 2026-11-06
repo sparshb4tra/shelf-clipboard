@@ -13,7 +13,7 @@ One Swift file, no dependencies. Live at [shelf-clipboard-site.vercel.app](https
 One command:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/sparshb4tra/shelf-clipboard/main/install.sh | bash
+curl -fsSL https://shelf-clipboard-site.vercel.app/install.sh | bash
 ```
 
 It downloads the latest release, installs to `/Applications` and clears the quarantine flag, so there
