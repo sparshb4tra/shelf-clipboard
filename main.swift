@@ -866,26 +866,6 @@ final class PreviewPane: NSView {
     }
 }
 
-// MARK: - Position
-
-enum ShelfPosition: String, CaseIterable {
-    case bottom, left, right, window
-
-    var title: String {
-        switch self {
-        case .bottom: return "Bottom"
-        case .left: return "Left edge"
-        case .right: return "Right edge"
-        case .window: return "Floating window"
-        }
-    }
-
-    static var current: ShelfPosition {
-        get { ShelfPosition(rawValue: UserDefaults.standard.string(forKey: "shelfPosition") ?? "") ?? .window }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: "shelfPosition") }
-    }
-}
-
 // MARK: - Launch at login
 
 enum LaunchAtLogin {
@@ -1178,11 +1158,9 @@ final class ShelfController: NSObject, NSTableViewDataSource, NSTableViewDelegat
             .font: NSFont.systemFont(ofSize: 11.5),
             .foregroundColor: NSColor.labelColor.withAlphaComponent(0.72)
         ]
-        let capturing = ProcessInfo.processInfo.environment["SHELF_CAPTURE"] == "1"
-        guard AXIsProcessTrusted() || capturing else {
-            return NSAttributedString(string: "Accessibility is off: paste copies, press \u{2318}V yourself",
-                                      attributes: base)
-        }
+        // No permanent nag when Accessibility is missing: the paste attempt itself shows a HUD
+        // explaining it. The footer always documents the keys.
+
         let key: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 11.5, weight: .medium),
             .foregroundColor: NSColor.labelColor.withAlphaComponent(0.78)
@@ -1207,16 +1185,6 @@ final class ShelfController: NSObject, NSTableViewDataSource, NSTableViewDelegat
         let menu = NSMenu()
         menu.addItem(withTitle: "Open Shelf", action: #selector(toggleFromMenu), keyEquivalent: "v").keyEquivalentModifierMask = [.option]
         menu.addItem(.separator())
-        let positionItem = NSMenuItem(title: "Position", action: nil, keyEquivalent: "")
-        let positionMenu = NSMenu()
-        for p in ShelfPosition.allCases {
-            let it = NSMenuItem(title: p.title, action: #selector(setPosition(_:)), keyEquivalent: "")
-            it.representedObject = p.rawValue
-            it.state = (p == ShelfPosition.current) ? .on : .off
-            positionMenu.addItem(it)
-        }
-        positionItem.submenu = positionMenu
-        menu.addItem(positionItem)
         menu.addItem(withTitle: "Clear History", action: #selector(clearHistory), keyEquivalent: "")
         menu.addItem(.separator())
         let login = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
@@ -1250,17 +1218,6 @@ final class ShelfController: NSObject, NSTableViewDataSource, NSTableViewDelegat
     }
 
     @objc private func toggleFromMenu() { toggle() }
-
-    @objc private func setPosition(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String,
-              let pos = ShelfPosition(rawValue: raw) else { return }
-        ShelfPosition.current = pos
-        sender.menu?.items.forEach { $0.state = ($0.representedObject as? String == raw) ? .on : .off }
-        log("position -> \(raw)")
-        if panel.isVisible {
-            positionPanel()
-        }
-    }
 
     @objc private func toggleLaunchAtLogin() {
         LaunchAtLogin.set(!LaunchAtLogin.isEnabled)
@@ -1340,22 +1297,9 @@ final class ShelfController: NSObject, NSTableViewDataSource, NSTableViewDelegat
         let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0]
         let visible = screen.visibleFrame
         let size = panel.frame.size
-        let margin: CGFloat = 0   // docked modes sit flush to the edge
-
-        var origin: NSPoint
-        switch ShelfPosition.current {
-        case .bottom:
-            origin = NSPoint(x: visible.midX - size.width / 2, y: visible.minY)
-        case .left:
-            origin = NSPoint(x: visible.minX, y: visible.midY - size.height / 2)
-        case .right:
-            origin = NSPoint(x: visible.maxX - size.width, y: visible.midY - size.height / 2)
-        case .window:
-            origin = NSPoint(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2 + 40)
-        }
-        panel.isMovableByWindowBackground = (ShelfPosition.current == .window)
+        let origin = NSPoint(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2 + 40)
+        panel.isMovableByWindowBackground = true
         panel.setFrame(NSRect(origin: origin, size: size), display: true)
-        log("placed \(ShelfPosition.current.rawValue) at \(Int(origin.x)),\(Int(origin.y))")
     }
 
     func hide() {
