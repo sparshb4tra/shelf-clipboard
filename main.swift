@@ -866,6 +866,26 @@ final class PreviewPane: NSView {
     }
 }
 
+// MARK: - Position
+
+enum ShelfPosition: String, CaseIterable {
+    case bottom, left, right, window
+
+    var title: String {
+        switch self {
+        case .bottom: return "Bottom"
+        case .left: return "Left edge"
+        case .right: return "Right edge"
+        case .window: return "Floating window"
+        }
+    }
+
+    static var current: ShelfPosition {
+        get { ShelfPosition(rawValue: UserDefaults.standard.string(forKey: "shelfPosition") ?? "") ?? .window }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "shelfPosition") }
+    }
+}
+
 // MARK: - Launch at login
 
 enum LaunchAtLogin {
@@ -1186,6 +1206,16 @@ final class ShelfController: NSObject, NSTableViewDataSource, NSTableViewDelegat
         let menu = NSMenu()
         menu.addItem(withTitle: "Open Shelf", action: #selector(toggleFromMenu), keyEquivalent: "v").keyEquivalentModifierMask = [.option]
         menu.addItem(.separator())
+        let positionItem = NSMenuItem(title: "Position", action: nil, keyEquivalent: "")
+        let positionMenu = NSMenu()
+        for p in ShelfPosition.allCases {
+            let it = NSMenuItem(title: p.title, action: #selector(setPosition(_:)), keyEquivalent: "")
+            it.representedObject = p.rawValue
+            it.state = (p == ShelfPosition.current) ? .on : .off
+            positionMenu.addItem(it)
+        }
+        positionItem.submenu = positionMenu
+        menu.addItem(positionItem)
         menu.addItem(withTitle: "Clear History", action: #selector(clearHistory), keyEquivalent: "")
         menu.addItem(.separator())
         let login = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
@@ -1219,6 +1249,17 @@ final class ShelfController: NSObject, NSTableViewDataSource, NSTableViewDelegat
     }
 
     @objc private func toggleFromMenu() { toggle() }
+
+    @objc private func setPosition(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let pos = ShelfPosition(rawValue: raw) else { return }
+        ShelfPosition.current = pos
+        sender.menu?.items.forEach { $0.state = ($0.representedObject as? String == raw) ? .on : .off }
+        log("position -> \(raw)")
+        if panel.isVisible {
+            positionPanel()
+        }
+    }
 
     @objc private func toggleLaunchAtLogin() {
         LaunchAtLogin.set(!LaunchAtLogin.isEnabled)
@@ -1298,9 +1339,22 @@ final class ShelfController: NSObject, NSTableViewDataSource, NSTableViewDelegat
         let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0]
         let visible = screen.visibleFrame
         let size = panel.frame.size
-        let x = visible.midX - size.width / 2
-        let y = visible.midY - size.height / 2 + 40
-        panel.setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: true)
+        let margin: CGFloat = 20
+
+        var origin: NSPoint
+        switch ShelfPosition.current {
+        case .bottom:
+            origin = NSPoint(x: visible.midX - size.width / 2, y: visible.minY + margin)
+        case .left:
+            origin = NSPoint(x: visible.minX + margin, y: visible.midY - size.height / 2)
+        case .right:
+            origin = NSPoint(x: visible.maxX - size.width - margin, y: visible.midY - size.height / 2)
+        case .window:
+            origin = NSPoint(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2 + 40)
+        }
+        panel.isMovableByWindowBackground = (ShelfPosition.current == .window)
+        panel.setFrame(NSRect(origin: origin, size: size), display: true)
+        log("placed \(ShelfPosition.current.rawValue) at \(Int(origin.x)),\(Int(origin.y))")
     }
 
     func hide() {
