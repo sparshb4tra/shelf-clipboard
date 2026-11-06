@@ -44,7 +44,7 @@ Build flags: `SHELF_SKIP_INSTALL=1 ./build.sh` builds without installing (what C
 - right pane previews the selected clip: full image, full text, file icon or colour
 - click the preview to open an image at full size, drag it to drop the image somewhere else
 - `⌘C` copies, `⌘O` opens, `⌘P` pins, `⌘⌫` deletes, `⌘↩` pastes every selected clip
-- the menu bar icon docks the shelf to the bottom, left or right edge, or leaves it as a floating
+- the menu bar icon opens it, or you leave it floating where you last dragged it
   window you can drag anywhere
 
 History holds 300 clips. Pinned clips float to the top and are never trimmed. The menu bar item has
