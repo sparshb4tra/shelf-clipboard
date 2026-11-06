@@ -977,6 +977,7 @@ final class ShelfController: NSObject, NSTableViewDataSource, NSTableViewDelegat
             self.hide()
         }
         promptForAccessibility()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { Onboarding.shared.showIfNeeded() }
     }
 
     // MARK: Menu
@@ -1123,7 +1124,7 @@ final class ShelfController: NSObject, NSTableViewDataSource, NSTableViewDelegat
         emptyLabel.alignment = .center
         emptyLabel.font = .systemFont(ofSize: 13)
         emptyLabel.textColor = .secondaryLabelColor
-        emptyLabel.stringValue = "No clips yet"
+        emptyLabel.stringValue = "Copy something, then press \u{2325}V"
         emptyLabel.font = .systemFont(ofSize: 13, weight: .medium)
         emptyLabel.isHidden = true
 
@@ -1615,6 +1616,124 @@ final class ShelfController: NSObject, NSTableViewDataSource, NSTableViewDelegat
     @objc private func clearHistory() {
         Store.shared.clear()
         reload()
+    }
+}
+
+// MARK: - Onboarding
+
+/// Shown once per launch when Accessibility has not been granted. Without it the app can still
+/// copy, but it cannot paste into another app, which is the whole point of the tool.
+final class Onboarding: NSObject, NSWindowDelegate {
+    static let shared = Onboarding()
+    private var window: NSWindow?
+    private var timer: Timer?
+
+    private var forced = false
+
+    func showIfNeeded() {
+        forced = ProcessInfo.processInfo.environment["SHELF_FORCE_ONBOARDING"] == "1"
+        guard forced || !AXIsProcessTrusted() else { return }
+        guard window == nil else { return }
+        build()
+    }
+
+    private func build() {
+        let w: CGFloat = 420, h: CGFloat = 280
+        let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: w, height: h),
+                           styleMask: [.titled, .closable, .fullSizeContentView],
+                           backing: .buffered, defer: false)
+        win.title = "Shelf"
+        win.titlebarAppearsTransparent = true
+        win.isMovableByWindowBackground = true
+        win.delegate = self
+        win.level = .floating
+        win.backgroundColor = .windowBackgroundColor
+
+        let content = NSView(frame: NSRect(x: 0, y: 0, width: w, height: h))
+
+        let icon = NSImageView(frame: NSRect(x: w / 2 - 20, y: h - 80, width: 40, height: 40))
+        icon.image = NSImage(systemSymbolName: "hand.raised.fill", accessibilityDescription: nil)
+        icon.contentTintColor = .controlAccentColor
+        icon.imageScaling = .scaleProportionallyDown
+        content.addSubview(icon)
+
+        let title = NSTextField(labelWithString: "One step and you are set")
+        title.font = .systemFont(ofSize: 16, weight: .semibold)
+        title.alignment = .center
+        title.frame = NSRect(x: 24, y: h - 104, width: w - 48, height: 20)
+        content.addSubview(title)
+
+        let body = NSTextField(wrappingLabelWithString:
+            "Shelf needs Accessibility to paste into the app you are in. macOS keeps it on your machine and nothing is sent anywhere.")
+        body.font = .systemFont(ofSize: 12.5)
+        body.textColor = .secondaryLabelColor
+        body.alignment = .center
+        body.frame = NSRect(x: 40, y: h - 164, width: w - 80, height: 56)
+        content.addSubview(body)
+
+        let open = NSButton(title: "Open Accessibility settings", target: self, action: #selector(openSettings))
+        open.bezelStyle = .rounded
+        open.keyEquivalent = "\r"
+        open.controlSize = .large
+        open.frame = NSRect(x: w / 2 - 100, y: 76, width: 200, height: 32)
+        content.addSubview(open)
+
+        let check = NSButton(title: "Check again", target: self, action: #selector(recheck))
+        check.bezelStyle = .inline
+        check.isBordered = false
+        check.contentTintColor = .controlAccentColor
+        check.frame = NSRect(x: w / 2 - 55, y: 48, width: 110, height: 20)
+        content.addSubview(check)
+
+        let foot = NSTextField(labelWithString: "\u{2325}V opens Shelf from anywhere")
+        foot.font = .systemFont(ofSize: 11.5)
+        foot.textColor = .tertiaryLabelColor
+        foot.alignment = .center
+        foot.frame = NSRect(x: 24, y: 22, width: w - 48, height: 16)
+        content.addSubview(foot)
+
+        win.contentView = content
+        win.center()
+        win.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        window = win
+
+        guard !forced else { return }
+        timer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+            guard let self, let w = self.window else { return }
+            if AXIsProcessTrusted() {
+                HUD.flash("Accessibility on \u{2014} press \u{2325}V")
+                self.finish()
+                w.orderOut(nil)
+            }
+        }
+    }
+
+    @objc private func openSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    @objc private func recheck() {
+        if AXIsProcessTrusted() {
+            HUD.flash("Accessibility on \u{2014} press \u{2325}V")
+            finish()
+            window?.orderOut(nil)
+        } else {
+            NSSound.beep()
+        }
+    }
+
+    private func finish() {
+        timer?.invalidate()
+        timer = nil
+        window?.delegate = nil
+        window = nil
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        finish()
     }
 }
 
