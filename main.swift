@@ -1178,7 +1178,8 @@ final class ShelfController: NSObject, NSTableViewDataSource, NSTableViewDelegat
             .font: NSFont.systemFont(ofSize: 11.5),
             .foregroundColor: NSColor.labelColor.withAlphaComponent(0.72)
         ]
-        guard AXIsProcessTrusted() else {
+        let capturing = ProcessInfo.processInfo.environment["SHELF_CAPTURE"] == "1"
+        guard AXIsProcessTrusted() || capturing else {
             return NSAttributedString(string: "Accessibility is off: paste copies, press \u{2318}V yourself",
                                       attributes: base)
         }
@@ -1339,16 +1340,16 @@ final class ShelfController: NSObject, NSTableViewDataSource, NSTableViewDelegat
         let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0]
         let visible = screen.visibleFrame
         let size = panel.frame.size
-        let margin: CGFloat = 20
+        let margin: CGFloat = 0   // docked modes sit flush to the edge
 
         var origin: NSPoint
         switch ShelfPosition.current {
         case .bottom:
-            origin = NSPoint(x: visible.midX - size.width / 2, y: visible.minY + margin)
+            origin = NSPoint(x: visible.midX - size.width / 2, y: visible.minY)
         case .left:
-            origin = NSPoint(x: visible.minX + margin, y: visible.midY - size.height / 2)
+            origin = NSPoint(x: visible.minX, y: visible.midY - size.height / 2)
         case .right:
-            origin = NSPoint(x: visible.maxX - size.width - margin, y: visible.midY - size.height / 2)
+            origin = NSPoint(x: visible.maxX - size.width, y: visible.midY - size.height / 2)
         case .window:
             origin = NSPoint(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2 + 40)
         }
