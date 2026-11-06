@@ -6,7 +6,7 @@ is no account and no network code.
 
 ![Shelf](docs/shelf.png)
 
-One Swift file, no dependencies.
+One Swift file, no dependencies. Live at [shelf-clipboard-site.vercel.app](https://shelf-clipboard-site.vercel.app).
 
 ## Install
 
