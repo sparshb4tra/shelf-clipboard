@@ -10,8 +10,15 @@ One Swift file, no dependencies. Live at [shelf-clipboard-site.vercel.app](https
 
 ## Install
 
-Download the latest release, unzip, and drag **Shelf.app** to Applications. The build is self-signed,
-so the first launch needs right click → open.
+One command:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/sparshb4tra/shelf-clipboard/main/install.sh | bash
+```
+
+It downloads the latest release, installs to `/Applications` and clears the quarantine flag, so there
+is no "damaged app" dialog. Prefer doing it by hand? Download the release, unzip, drag **Shelf.app** to
+Applications, then right click → open once (the build is self-signed).
 
 Or build it yourself:
 
@@ -37,6 +44,8 @@ Build flags: `SHELF_SKIP_INSTALL=1 ./build.sh` builds without installing (what C
 - right pane previews the selected clip: full image, full text, file icon or colour
 - click the preview to open an image at full size, drag it to drop the image somewhere else
 - `⌘C` copies, `⌘O` opens, `⌘P` pins, `⌘⌫` deletes, `⌘↩` pastes every selected clip
+- the menu bar icon docks the shelf to the bottom, left or right edge, or leaves it as a floating
+  window you can drag anywhere
 
 History holds 300 clips. Pinned clips float to the top and are never trimmed. The menu bar item has
 clear history, launch at login and about.
