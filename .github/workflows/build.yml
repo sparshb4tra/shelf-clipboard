@@ -1,0 +1,20 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  compile:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: toolchain
+        run: swiftc --version
+      - name: build
+        run: SHELF_SKIP_INSTALL=1 ./build.sh
+      - name: check bundle
+        run: |
+          test -x Shelf.app/Contents/MacOS/Shelf
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" Shelf.app/Contents/Info.plist
